@@ -1,0 +1,73 @@
+name: hygiene
+
+# Called from a repo's own workflow, see README.md. Fails on secrets, on names from the
+# LEAK_DENYLIST org secret, and on commits without a Signed-off-by for their author.
+on:
+  workflow_call:
+    secrets:
+      LEAK_DENYLIST:
+        description: Names and hosts that must not appear in a repo, one per line.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: src
+          fetch-depth: 0
+          persist-credentials: false
+
+      # This repo checks itself with the scripts of the commit under test, every other repo with
+      # the scripts on main, the branch it calls this workflow from.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: BlindspotSoftware/.github
+          ref: ${{ github.repository == 'BlindspotSoftware/.github' && github.sha || 'main' }}
+          path: tools
+          sparse-checkout: scripts
+          persist-credentials: false
+
+      - name: Install gitleaks
+        run: tools/scripts/install-gitleaks.sh "$RUNNER_TEMP"
+
+      - name: Commit range
+        id: range
+        working-directory: src
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            range=$BASE..$HEAD
+          elif [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2> /dev/null; then
+            range=$BEFORE..$SHA
+          else
+            range=origin/$DEFAULT_BRANCH..$SHA
+          fi
+          echo "range=$range" >> "$GITHUB_OUTPUT"
+
+      - name: Leaks
+        working-directory: src
+        env:
+          GITLEAKS: ${{ runner.temp }}/gitleaks
+          RANGE: ${{ steps.range.outputs.range }}
+          LEAK_DENYLIST: ${{ secrets.LEAK_DENYLIST }}
+          LEAK_GUARD_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: ../tools/scripts/leak-guard.sh "$RANGE"
+
+      - name: DCO
+        if: ${{ !cancelled() && steps.range.outcome == 'success' }}
+        working-directory: src
+        env:
+          RANGE: ${{ steps.range.outputs.range }}
+        run: ../tools/scripts/dco.sh "$RANGE"

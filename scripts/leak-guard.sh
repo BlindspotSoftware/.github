@@ -9,10 +9,10 @@ gitleaks=${GITLEAKS:-gitleaks}
 denylist=${LEAK_DENYLIST:-}
 failed=0
 
-"$gitleaks" dir . --redact --no-banner || failed=1
+"$gitleaks" dir . --verbose --redact --no-banner || failed=1
 
 if [ -n "$range" ]; then
-  "$gitleaks" git . --log-opts="$range" --redact --no-banner || failed=1
+  "$gitleaks" git . --log-opts="$range" --verbose --redact --no-banner || failed=1
 fi
 
 if [ "${LEAK_GUARD_FORK_PR:-false}" = true ]; then

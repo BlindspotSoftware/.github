@@ -66,6 +66,7 @@ repo secret-in-tree
 change config.txt "token = $token" --signoff
 expect fail secret-in-tree "$scripts/leak-guard.sh" main~1..main
 expect_output yes secret-in-tree-found "leaks found:"
+expect_output yes secret-in-tree-names-file "config.txt"
 expect_output no secret-not-printed "$token"
 
 repo secret-in-history

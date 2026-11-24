@@ -24,7 +24,7 @@ Pull requests from forks get no secrets, so they skip the denylist; the next pus
 ## When it fails
 
 - A test key or fixture that gitleaks flags: add its fingerprint from the log to `.gitleaksignore`, or a path to an allowlist in `.gitleaks.toml`, both in the repo root.
-- A denylisted name: remove it from the file. The list lives only in the org secret, never in a repo.
+- A denylisted name: remove it from the file. The list lives only in the org secret, never in a repo. A line that has to keep the name, such as a live host in a config, can say `denylist:allow` in a comment.
 - A missing sign-off: `git commit --amend --signoff`, or `git rebase --signoff <base>` for several commits.
 
 ## Change it

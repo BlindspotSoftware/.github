@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run in a git checkout. Fails on secrets in the tree or in the commits of $1 (base..head, may be
 # empty), and on any line of LEAK_DENYLIST in a tracked file. A denylist hit prints as path:line,
-# never with the matched text.
+# never with the matched text. A line that says denylist:allow is let through.
 set -uo pipefail
 
 range=${1:-}
@@ -25,7 +25,7 @@ else
   trap 'rm -f "$list"' EXIT
   printf '%s\n' "$denylist" | sed '/^[[:space:]]*$/d' > "$list"
 
-  hits=$(git grep -i -I -n -F -f "$list" | cut -d: -f1,2)
+  hits=$(git grep -i -I -n -F -f "$list" | grep -v -F 'denylist:allow' | cut -d: -f1,2)
   if [ -n "$hits" ]; then
     echo "::error::Denylisted names in tracked files:"
     echo "$hits"

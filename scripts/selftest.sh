@@ -102,6 +102,16 @@ git -C "$dir" -c user.name='dependabot[bot]' -c user.email='49699333+dependabot[
   commit -q --allow-empty -m "bump a dependency"
 expect pass bot-needs-no-sign-off "$scripts/dco.sh" main~1..main
 
+repo denylist-allow
+change hosts.yaml "host: build.$denied.example # denylist:allow" --signoff
+change notes.md "a board from $denied in the lab" --signoff
+expect fail denylist-allow-is-per-line "$scripts/leak-guard.sh" main~2..main
+expect_output yes denylist-allow-names-other-line "notes.md:1"
+expect_output no denylist-allow-skips-its-line "hosts.yaml"
+git -C "$dir" rm -q notes.md
+git -C "$dir" commit -q --signoff -m "drop notes.md"
+expect pass denylist-allow "$scripts/leak-guard.sh" main~3..main
+
 expect fail bad-range "$scripts/dco.sh" main..no-such-branch
 
 if [ "$failures" -gt 0 ]; then
